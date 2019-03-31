@@ -11,6 +11,7 @@ import Data.Text as DT
 import Data.Semigroup ((<>))
 import System.Directory
 import Data.Either
+import System.CPUTime
 
 import Options.Applicative
 import qualified Data.Text.IO as DTIO
@@ -28,7 +29,7 @@ config = Config
             short 'i' <>
             metavar "Input file" <>
             help "Input File to read initial board state from" <>
-            value "test4_solvable.txt"
+            value "test9_solvable.txt"
           )
       <*> (optional $option str
           ( long "output" <>
@@ -46,10 +47,16 @@ main = execute =<< execParser opts where
           execute :: Config -> IO ()
           execute c@Config{..} = do
             initialPosSpec <- DTIO.readFile inputFile
-            either reportError attemptSolve $ parsePosition initialPosSpec where
+            startTime <- getCPUTime
+            either reportError attemptSolve $ parsePosition initialPosSpec
+            endTime <- getCPUTime
+            putStrLn $ "Total time: " <> (show $ executionTime startTime endTime) <> "s" where
               reportError = hPutStrLn stderr
-              attemptSolve p = maybe unsolveable (write . render) $ solve p
-              write = writeOutput outputFile
-              unsolveable = reportError "The provided position has no solutions"
-              writeOutput Nothing =  putStrLn . DT.unpack
-              writeOutput (Just file) = DTIO.writeFile file
+              attemptSolve p = handle $ solve p where
+                handle (n, Nothing) = unsolveable n
+                handle (n, Just pos) = ((write . render) pos) >> (putStrLn $ "Solution visited " <> (show n) <> " states")
+                write = writeOutput outputFile
+                unsolveable n = reportError $ "The provided position has no solutions (" <> (show n) <> " states visited)"
+                writeOutput Nothing =  putStrLn . DT.unpack
+                writeOutput (Just file) = DTIO.writeFile file
+              executionTime start end  = ((fromIntegral (end - start)) / (10^12) :: Double)

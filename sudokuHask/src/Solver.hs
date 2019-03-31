@@ -6,107 +6,104 @@ module Solver where
 import Data.Array.IArray
 import qualified Data.Set as DS
 import Data.Char(ord)
-import Data.PQueue.Max as PQ
 import Debug.Trace as DT
+import Data.Foldable as F
 
 import Position
 
-type Partition = DS.Set Char
+-- solver cell state is the set of remaining choices plus a boolean indicating the selection has been fixed
+type SolverCellState = (DS.Set Char, Bool)
+data SolverState = SolverState CellIndices (Position SolverCellState)
 
-data Partitions = Partitions {
-  rows :: Array Int Partition,
-  columns :: Array Int Partition,
-  boxes :: Array (Int,Int) Partition
-} deriving Show
+-- Cached data structure containing for each cell position the list of cell positions
+-- it shares a line or box with
+type CellIndices = Array (Int, Int) (DS.Set (Int, Int))
 
-data CellSets = CellSets {
-  cell :: (Int, Int),
-  rowSet :: Partition,
-  columnSet :: Partition,
-  boxSet :: Partition
-} deriving Show
+makeCellIndices :: Int -> CellIndices
+makeCellIndices n = listArray bounds dependencies where
+  bounds = ((0,0), (n-1,n-1))
+  dependencies = fmap dependents $ range bounds
+  dependents (r, c) = DS.difference allSharedPartition self where
+    allSharedPartition = DS.unions (row : column : box : [])
+    self = DS.singleton (r, c)
+    row = DS.fromList $ rowCellIndices n r
+    column = DS.fromList $ columnCellIndices n c
+    box = DS.fromList $ boxCellIndices n r c
 
-cellIndex CellSets{..} = cell
+dependentCells :: CellIndices -> (Int, Int) -> DS.Set (Int, Int)
+dependentCells ci idx = ci ! idx
 
-numChoices :: CellSets -> Int
-numChoices cs = DS.size $ chosen cs
+-- Solver state uses positions encoded by the set of remaining choices for each cell
+toSolverPos :: Position (Maybe Char) -> Position SolverCellState
+toSolverPos (Position cs p) = Position cs remainingChoices where
+  remainingChoices = listArray (bounds p) indexChoices
+  indexChoices = fmap calculateRemaining (indices p)
+  calculateRemaining (row, column) = convertCell $ p ! (row, column) where
+    convertCell (Just c) = (DS.singleton c, True)
+    convertCell Nothing = (DS.difference (DS.fromList cs) disallowed, False)
+    disallowed = DS.unions (hline : vline : box : [])
+    hline = usedSet hLineCells
+    hLineCells = cells $ rowCellIndices (dim p) row
+    vline = usedSet vLineCells
+    vLineCells = cells $ columnCellIndices (dim p) column
+    box = usedSet boxCells
+    boxCells = cells $ boxCellIndices (dim p) row column
+    cells = fmap (p !)
+    usedSet lc = foldl addCell DS.empty lc where
+      addCell s (Just c) = DS.insert c s
+      addCell s Nothing = s
 
-chosen :: CellSets -> DS.Set Char
-chosen CellSets{..} = DS.union rowSet $ DS.union columnSet boxSet
+initialState :: (Position (Maybe Char)) -> SolverState
+initialState pos@(Position _ p) = SolverState (makeCellIndices (dim p)) $ toSolverPos pos
 
-type RemainingChoices = PQ.MaxQueue CellSets
+updateCell ci (Position cs p) idx value = Position cs p' where
+  p' =
+    let updateIndices = dependentCells ci idx
+        updatedValue :: ((Int, Int), (DS.Set Char, Bool)) -> (DS.Set Char, Bool)
+        updatedValue (i, oldVal)         | i == idx  = (DS.singleton value, True)
+        updatedValue (_, oldVal@(_, True))           = oldVal
+        updatedValue (i, oldVal)         | not $ DS.member i updateIndices = oldVal
+        updatedValue (_, (allowed, _))   | otherwise = (DS.delete value allowed, False)
+    in
+        listArray (bounds p) (fmap updatedValue $ assocs p)
 
-instance Eq CellSets where
-  rc1 == rc2 = (numChoices rc1) == (numChoices rc2)
+solve :: (Position (Maybe Char)) -> (Int, Maybe (Position (Maybe Char)))
+solve p = (count, position) where
+  (count, solutionState) = doSolve $ initialState p
+  position = toPosition <$> solutionState
+  toPosition (SolverState _ (Position cs p)) = Position cs $ fmap (DS.lookupMin . fst) p
+  doSolve :: SolverState -> (Int, Maybe SolverState)
+  doSolve ss@(SolverState ci s@(Position _ choices)) =
+    let numChoices (idx, cellState) = (idx, DS.size (fst cellState))
+        openChoices = filter (not . snd . snd) $ assocs choices
+        choiceSizes = fmap numChoices openChoices
+        idx = fst $ lowest ((0,0), 100) choiceSizes where
+          lowest acc [] = acc
+          lowest acc@(i, 0) _ = acc
+          lowest (_, acc_n) (el@(i, n) : r) | n < acc_n = lowest el r
+          lowest acc (h : r) | otherwise = lowest acc r
+        search = solveChoice $ fst $ choices ! idx
+        solveChoice available | DS.size available == 0 = (1, Nothing)
+        solveChoice available | otherwise = foldl first (0, Nothing) $ maybeSolutions $ DS.toList available
+        first (m, s@(Just _)) _ = (m, s)
+        first (m, Nothing) (m2, x) = (m + m2, x)
+        maybeSolutions cs =
+          let choiceStates = (updateCell ci s idx) <$> cs
+          in (doSolve . (\p -> SolverState ci p)) <$> choiceStates
+    in if choiceSizes == [] then (1, Just ss) else search
 
-instance Ord CellSets where
-  compare rc1 rc2 = compare (numChoices rc1) (numChoices rc2)
+rowCellIndices :: Int -> Int -> [(Int, Int)]
+rowCellIndices n row = fmap (\i -> (row, i)) [0..n-1]
 
-data SolverState = SolverState Position Partitions RemainingChoices deriving Show
+columnCellIndices :: Int -> Int -> [(Int, Int)]
+columnCellIndices n column = fmap (\i -> (i, column)) [0..n-1]
 
-initialState :: Position -> SolverState
-initialState pos@(Position cs p) = SolverState pos partitions (allChoices p partitions) where
-  partitions = foldl accumulate emptyPartitions $ indices p
-  emptyPartitions = Partitions lineArray lineArray boxArray where
-    lineArray = listArray (0, dim pos - 1) $ replicate (dim pos) $ emptyPartition
-    boxArray = listArray ((0,0), (baseDim-1, baseDim-1)) $ replicate (dim pos)  $ emptyPartition
-    baseDim = case (dim pos) of
-      4   -> 2
-      9   -> 3
-      16  -> 4
-      25  -> 5
-      _   -> undefined
-  accumulate acc el = process $ p ! el where
-    process Nothing = acc
-    process (Just c) = update acc (fst el) (snd el) c
-    update Partitions{..} row column value =
-      Partitions (add rows row) (add columns column) (add boxes (boxIndices acc row column)) where
-        add :: Ix i => Array i Partition -> i -> Array i Partition
-        add ac i = ac//[(i, DS.insert value (ac!i))]
-  emptyPartition = DS.empty
-
-updateCell (SolverState pos partitions choices) (row, column) value =
-  initialState newpos where
-    newpos = setCell pos row column $ Just value
-
-allChoices :: Array (Int, Int) (Maybe Char) -> Partitions -> RemainingChoices
-allChoices cells partitions = foldl addCell empty allCells where
-  addCell :: RemainingChoices -> (Int, Int) -> RemainingChoices
-  addCell acc ix = cellChoices $ cells ! ix where
-    cellChoices Nothing = PQ.insert (cellSets partitions ix) acc
-    cellChoices (Just c) = acc
-  allCells = indices cells
-
-solve :: Position -> Maybe Position
-solve p = toPosition <$> (doSolve $ initialState p) where
-  toPosition (SolverState p _ _) = p
-  doSolve s@(SolverState pos partitions choices)
-    | PQ.null choices = if complete pos then Just s else Nothing
-    | otherwise       = processMostConstrained where
-    processMostConstrained = foldl first Nothing maybeSolutions
-    first :: Maybe a -> Maybe a -> Maybe a
-    first s@(Just _) _ = s
-    first Nothing ms = ms
-    maybeSolutions :: [Maybe SolverState]
-    maybeSolutions =
-      let cellSet = PQ.findMax choices
-          valueChoices = DS.toList $ DS.difference (charSet pos) (chosen cellSet)
-          cell = cellIndex cellSet
-          choiceStates = (updateCell s cell) <$> valueChoices
-      in doSolve <$> choiceStates
-
-cellSets :: Partitions -> (Int, Int) -> CellSets
-cellSets p@Partitions{..} (row, column) = CellSets (row, column) rowPartition columnPartition boxPartition where
-  rowPartition = rows ! row
-  columnPartition = columns ! column
-  boxPartition = boxes ! (boxIndices p row column)
-
-boxIndices p row column =
-  let size = baseSize p
-  in (quot row size, quot column size)
-
-baseSize p@Partitions{..} =
-  let b = bounds boxes
-      upper = snd b
-      lower = fst b
-  in (fst upper) - (fst lower) + 1
+boxCellIndices :: Int -> Int -> Int -> [(Int, Int)]
+boxCellIndices n row column = filter inBox $ range ((0,0), (n-1,n-1)) where
+  inBox (r,c) = ((r `quot` baseSize) == (row `quot` baseSize)) && ((c `quot` baseSize) == (column `quot` baseSize))
+  baseSize = case n of
+    4   -> 2
+    9   -> 3
+    16  -> 4
+    25  -> 5
+    _   -> undefined
