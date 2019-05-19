@@ -7,8 +7,6 @@ mod state;
 mod converters;
 mod timed;
 
-use state::State;
-
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -18,8 +16,6 @@ fn main() {
         Ok(b) => {
             let mut s = state::State::from(&b);
             let (t, solved) = timed::timed(&mut || s.solve());
-//            let solved = solver();
-//            let t = 0;
             if solved {
                 fn to_option(value: i32) -> Option<u32> {
                     if value < 0 {

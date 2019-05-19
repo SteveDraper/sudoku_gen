@@ -6,7 +6,7 @@ pub fn timed<F: FnMut() -> bool>(f: &mut F) -> (u64, bool) {
     let start = PreciseTime::now();
     let result = f();
     let end = PreciseTime::now();
-    (start.to(end).num_milliseconds() as u64, f())
+    (start.to(end).num_milliseconds() as u64, result)
 }
 
 
