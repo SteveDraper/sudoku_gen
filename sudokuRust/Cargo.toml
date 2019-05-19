@@ -1,0 +1,8 @@
+[package]
+name = "sudokuRust"
+version = "0.1.0"
+authors = ["Steve Draper <steve.p.draper@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+time = "*"
