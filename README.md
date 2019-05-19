@@ -69,7 +69,6 @@ H W D I E Y O L A M S T R P N C
 Solution visited 46810 states
 Total time: 35.022938s
 ```
-```
 
 Seems kinda slow.  This could certainly be significantly optimized at the expense of losing the idiomatic nature of the
 implementation.  Most of the time associated with the large churn on the heap of short-lifetime objects.  For this task
