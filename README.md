@@ -25,7 +25,7 @@ In all cases I've taken a simple constraint-solver approach as per the following
   * Set the chosen cell to the enumerated choice value and recurse
 * If no solution was found return the non-existance of a solution
 
-This doesn't guarantee that the solution is unique (but we could easily do that by simply running this twice with the 
+This doesn't guarantee that the solution is unique (but we could easily do that by simply running this twice with the
 enumeration order of choices for a given cell reversed, and checking the result is the same).  However, it does guarantee
 to find a solution if one exists, and the most-constrained cell ordering is a fairly efficient ordering on the search
 space.
@@ -87,7 +87,7 @@ that minimizes boxing and heap access.  So:
   * open-choice sets for each row, column, and sub-square
 * Choice sets implemented as bit-sets in 32-bit words, which means the set operations all amount to very direct bitwise
   operation on u32's
-  
+
 ### Buid and run
 
 Assuming you have `cargo` installed (see https://www.rust-lang.org/tools/install otherwise):
@@ -121,3 +121,7 @@ H W D I E Y O L A M S T R P N C
 
 Much faster!  Note that this is not a comment on the relative merits of the languages in general, but I *do* think Rust
 is the more natural choice for this particular task.
+
+### Updated Rust solver
+
+As of May 25th, I have now committed a slightly more optimized version of the Rust solver, which brings the solution time down to 150ms.
