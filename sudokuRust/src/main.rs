@@ -24,9 +24,17 @@ fn main() {
                         Some(value as u32)
                     }
                 }
+                let mut cells = Vec::new();
+                for row in 0..s.board_size {
+                    let mut row_vec = Vec::new();
+                    for col in 0..s.board_size {
+                        row_vec.push(to_option(s.cells[s.cell_index(row, col)]));
+                    }
+                    cells.push(row_vec);
+                }
                 let result = board::Board {
                     kernel_size: s.kernel_size,
-                    cells: s.cells.into_iter().map(|r| r.into_iter().map(to_option).collect()).collect(),
+                    cells: cells,
                     char_encoding: b.char_encoding
                 };
                 println!("Solution found in {} milliseconds", t);

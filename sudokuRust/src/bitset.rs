@@ -7,6 +7,8 @@ pub trait BitSet {
 
     fn card(&self) -> u32;
 
+    fn card_below(&self, max: u32) -> u32;
+
     fn is_empty(&self) -> bool {
         self.card() == 0
     }
@@ -56,10 +58,19 @@ impl BitSet for BitSet32 {
         let mut result: u32 = 0;
         let mut val = encoding(self);
         while val > 0 {
-            if val % 2 != 0 {
-                result = result + 1;
-            }
-            val = val >> 1;
+            val = val & (val-1);
+            result +=1;
+        }
+        result
+    }
+
+    #[inline(always)]
+    fn card_below(&self, max: u32) -> u32 {
+        let mut result: u32 = 0;
+        let mut val = encoding(self);
+        while val > 0 && result < max {
+            val = val & (val-1);
+            result +=1;
         }
         result
     }
