@@ -65,8 +65,21 @@ impl Board {
                 let dim: usize = line.chars().filter(|c| *c != ' ').count();
 
                 if alphabet.len() != dim {
-                    println!("{:?}", alphabet);
-                    return Result::Err(format!("Unique character count {} differs from dimension {}", alphabet.len(), dim));
+                    if alphabet.len() < dim {
+                        let candidates = "123456789abcdefghijklmnopqrstuvwxyz".as_bytes();
+                        let mut idx: usize = 0;
+
+                        while alphabet.len() < dim {
+                            let candidate = candidates[idx] as char;
+                            idx += 1;
+                            if !alphabet.contains_key(&candidate) {
+                                alphabet.insert(candidate, alphabet.len() as u32);
+                            }
+                        }
+                    } else {
+                        println!("{:?}", alphabet);
+                        return Result::Err(format!("Unique character count {} differs from dimension {}", alphabet.len(), dim));
+                    }
                 }
 
                 let mut char_encoding: Vec<char> = vec!['.'; dim];
