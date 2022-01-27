@@ -37,6 +37,7 @@ class State {
         this.sqr_sets = _range(this.board_size).map(_ => all_set(this.board_size));
         this.cells = _range(this.board_size).map((_, i) => board.cells[i].slice());
         this.open = 0;
+        this.scratch = new BitSet32();
         _range(this.board_size).map((_, row) => {
             _range(this.board_size).map((_, col) => {
                 const value = board.cells[row][col];
@@ -83,8 +84,8 @@ class State {
                 }
             }
 
-            const open_ordered = reverse ? reversed(Array.from(open)) : Array.from(open);
-            const solved = open_ordered.some(try_choice);
+//            const open_ordered = reverse ? reversed(Array.from(open)) : Array.from(open);
+            const solved = open.some(try_choice);
             if (solved) {
                 return true;
             }
@@ -114,16 +115,20 @@ class State {
         var best_row = null;
         var best_col = null;
         var best_open_set = null;
+        var open = this.scratch;
+        var best_open_set = new BitSet32();
         for (let row = 0; row < this.board_size; row++) {
             var row_set = this.row_sets[row];
             for (let col = 0; col < this.board_size; col++) {
                 if (this.cells[row][col] == 0) {
                     var col_set = this.col_sets[col];
                     var sq_set = this.sqr_sets[this._sq_idx(row, col)];
-                    var open = row_set.intersect(col_set.intersect(sq_set));
+                    open.copy_from(row_set);
+                    open.intersect_with(col_set);
+                    open.intersect_with(sq_set);
                     if (open.size < min_found) {
                         min_found = open.size;
-                        best_open_set = open;
+                        best_open_set.copy_from(open);
                         best_row = row;
                         best_col = col;
                         if (min_found <= min_hint) {

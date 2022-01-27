@@ -11,19 +11,20 @@ function _calc_size(n) {
 }
 
 class BitSet32 {
-    constructor(init_value=0, max_possible=31) {
+    constructor(init_value=0) {
         this.value = init_value;
-        this.max_set = max_possible;
         this.size = _calc_size(init_value);
+    }
+
+    copy_from(other) {
+        this.value = other.value;
+        this.size = other.size;
     }
 
     add(n) {
         if (!this.has(n)) {
             this.value = this.value | _powers_of_2[n];
             this.size += 1;
-            if (n > this.max_set) {
-                this.max_set = n;
-            }
         }
     }
 
@@ -35,17 +36,33 @@ class BitSet32 {
     }
 
     intersect(other) {
-        return new BitSet32(this.value & other.value, this.max_set)
+        return new BitSet32(this.value & other.value)
+    }
+
+    intersect_with(other) {
+        this.value = this.value & other.value;
+        this.size = _calc_size(this.value);
     }
 
     has(n) {
         return ((this.value & _powers_of_2[n]) != 0);
     }
 
+    some(f) {
+        for (const value of this) {
+            if (f(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     *[Symbol.iterator]() {
-        for (let i = 0; i <= this.max_set; i++) {
+        var count = this.size;
+        for (let i = 0; count > 0; i++) {
             if (this.has(i)) {
                 yield i;
+                count--;
             }
         }
     }
