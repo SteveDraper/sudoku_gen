@@ -16,7 +16,7 @@ def main():
         argument(
             '--file',
             '-f',
-            help        = 'File containing position to solve)',
+            help        = 'File containing position to solve',
             required    = True
         )
     ]

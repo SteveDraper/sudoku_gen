@@ -125,3 +125,18 @@ is the more natural choice for this particular task.
 ### Updated Rust solver
 
 As of May 25th, I have now committed a slightly more optimized version of the Rust solver, which brings the solution time down to 150ms.
+
+## Python Solver
+
+Just for comparison I have added a python version using the same algorithm.  Although
+this is only mildly optimized, it isn't doing anything stupid in terms of object allocation/lifetime.
+Like the Rust version it's just mutating in-place (using a numpy array as the underlying board structure),
+though it relies on default python `set` instances, which could be optimized as bitsets.
+
+None-the-less, the execution time of the same reference puzzle is around 85 seconds - nearly
+3 orders of magnitude slower than the Rust implementation
+
+## NodeJS solver
+
+Since I need to learn some Javascript/node, I decided to port into this environment
+also.  Execution time is around 10 seconds.
