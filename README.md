@@ -139,4 +139,7 @@ None-the-less, the execution time of the same reference puzzle is around 85 seco
 ## NodeJS solver
 
 Since I need to learn some Javascript/node, I decided to port into this environment
-also.  Execution time is around 10 seconds.
+also.  Execution time of naive implementation using native Javascript Sets is around 10 seconds.
+
+Optimized version with native sets replaced by optimized bitsets is 490ms!
+

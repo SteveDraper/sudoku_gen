@@ -1,28 +1,33 @@
 const { Board } = require('./board.js');
+const { BitSet32 } = require('./bitset.js')
 
 function _range(n, start=0) {
     return Array.from({length: n}).map((_, i) => i + start);
 }
 
-function _intersect(set1, set2) {
-    if (set1.length > set2.length) {
-        var set3 = set1;
-        set1 = set2;
-        set2 = set3;
-    }
-    var result = new Set();
-    set1.forEach(v => {
-        if (set2.has(v)) {
-            result.add(v)
-        }
-    });
-    return result;
-}
+//function _intersect(set1, set2) {
+//    if (set1.length > set2.length) {
+//        var set3 = set1;
+//        set1 = set2;
+//        set2 = set3;
+//    }
+//    var result = new Set();
+//    set1.forEach(v => {
+//        if (set2.has(v)) {
+//            result.add(v)
+//        }
+//    });
+//    return result;
+//}
 
 class State {
     constructor(board) {
         function all_set(n) {
-            return new Set(_range(n, 1));
+            result = new BitSet32(0, n);
+            for (let i = 1; i <= n; i++) {
+                result.add(i);
+            }
+            return result;
         }
 
         this.kernel_size = board.kernel_size;
@@ -109,13 +114,13 @@ class State {
         var best_row = null;
         var best_col = null;
         var best_open_set = null;
-        _range(this.board_size).map((_, row) => {
+        for (let row = 0; row < this.board_size; row++) {
             var row_set = this.row_sets[row];
-            _range(this.board_size).map((_, col) => {
+            for (let col = 0; col < this.board_size; col++) {
                 if (this.cells[row][col] == 0) {
                     var col_set = this.col_sets[col];
                     var sq_set = this.sqr_sets[this._sq_idx(row, col)];
-                    var open = _intersect(row_set, _intersect(col_set, sq_set));
+                    var open = row_set.intersect(col_set.intersect(sq_set));
                     if (open.size < min_found) {
                         min_found = open.size;
                         best_open_set = open;
@@ -126,8 +131,8 @@ class State {
                         }
                     }
                 }
-            });
-        });
+            }
+        }
 
         return [best_row, best_col, best_open_set]
     }
